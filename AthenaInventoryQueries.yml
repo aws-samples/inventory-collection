@@ -1,0 +1,65 @@
+######################################################################################################################
+# (c) 2020 Amazon Web Services, Inc. or its affiliates. All Rights Reserved.
+# This AWS Content is provided subject to the terms of the AWS Customer Agreement
+# available at http://aws.amazon.com/agreement or other written agreement between
+# Customer and either Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.                                                                   #
+######################################################################################################################
+Parameters:
+  DataBase:
+    Description: The Database in athena in which you would like to create table
+    Type: String
+    Default: ssm-inventory
+  SelectQueryName1:
+    Description: Software inventory data from all tenant/mission accounts that were installed in last 30 days.
+    Type: String
+    Default: SoftwareInventory30daysQuery
+  SelectQueryName2:
+    Description: Collect unique software packageid along with the total number instances running the package
+    Type: String
+    Default: UniqueSoftwarePackageQuery
+  SelectQueryName3:
+    Description: Collect a total number of application instances by accounts
+    Type: String
+    Default: TotalNumberIntanceQuery
+  SelectQueryName4:
+    Description: Collect OS inventory 
+    Type: String
+    Default: OSInventoryQuery
+Resources:
+  AthenaSelectQuery1:
+    Type: 'AWS::Athena::NamedQuery'
+    Properties:
+      Database: !Ref DataBase
+      Description: Software inventory data from all tenant/mission accounts that were installed in last 30 days.
+      Name: !Ref SelectQueryName1
+      QueryString: !Sub >-
+        SELECT * FROM aws_application
+        where from_iso8601_timestamp(installedtime) > date_add('day', -30, now())
+  AthenaSelectQuery2:
+    Type: 'AWS::Athena::NamedQuery'
+    Properties:
+      Database: !Ref DataBase
+      Description: Collect unique software packageid along with the total number instances running the package.
+      Name: !Ref SelectQueryName2
+      QueryString: !Sub >-
+        SELECT distinct packageid, accountid, version, name, count(name) InstanceCount from aws_application
+        group by packageid, accountid, version, name order by packageid
+  AthenaSelectQuery3:
+    Type: 'AWS::Athena::NamedQuery'
+    Properties:
+      Database: !Ref DataBase
+      Description: Collect a total number of application instances by accounts.
+      Name: !Ref SelectQueryName3
+      QueryString: !Sub >-
+        SELECT accountid, name, count(*) as installation_count FROM aws_application
+        WHERE name = ‘<software-name>' 
+        GROUP BY accountid, name ORDER BY installation_count desc
+  AthenaSelectQuery4:
+    Type: 'AWS::Athena::NamedQuery'
+    Properties:
+      Database: !Ref DataBase
+      Description: Collect OS inventory 
+      Name: !Ref SelectQueryName4
+      QueryString: !Sub >-
+        SELECT * FROM aws_instancedetailedinformation a join
+        aws_network b ON  a.resourceid=b.resourceid 

@@ -1,0 +1,233 @@
+######################################################################################################################
+# (c) 2020 Amazon Web Services, Inc. or its affiliates. All Rights Reserved.
+# This AWS Content is provided subject to the terms of the AWS Customer Agreement
+# available at http://aws.amazon.com/agreement or other written agreement between
+# Customer and either Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.                                                                   #
+######################################################################################################################
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Template to create S3 encrypted bucket to store inventory data'
+Parameters:
+  InventoryBucketName:
+    Type: String
+    Description: Inventory Bucket Name
+  InventoryAthenaResultName:
+    Type: String
+    Description: Inventory Result Bucket Name
+
+Resources:
+  S3BucketInventory:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref InventoryBucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt EncryptionKey.Arn
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LoggingConfiguration:
+        DestinationBucketName: !Ref InventoryLogging
+        LogFilePrefix: inventory-logs
+  InventoryLogging:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt EncryptionKey.Arn
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  S3BucketResults:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref InventoryAthenaResultName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt EncryptionKey.Arn
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LoggingConfiguration:
+        DestinationBucketName: !Ref ResultsLogging
+        LogFilePrefix: queryresults-logs
+  ResultsLogging:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt EncryptionKey.Arn
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  InventoryBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref S3BucketInventory
+      PolicyDocument:
+        Version: 2012-10-17
+        Id: S3InventoryPolicy
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource: !Sub "arn:aws-us-gov:s3:::${InventoryBucketName}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+          - Sid: InventoryBucketPolicy
+            Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !Sub "arn:aws-us-gov:s3:::${InventoryBucketName}"
+          - Sid: athena
+            Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+                - athena.amazonaws.com
+            Action:
+              - s3:Get*
+              - s3:List*
+            Resource: !Sub "arn:aws-us-gov:s3:::${InventoryBucketName}/*"
+          - Sid: SSMBucketDelivery
+            Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "arn:aws-us-gov:s3:::${InventoryBucketName}/*"
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+
+  InventoryResultsPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref S3BucketResults
+      PolicyDocument:
+        Version: 2012-10-17
+        Id: S3InventoryPolicy
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource: !Sub "arn:aws-us-gov:s3:::${InventoryAthenaResultName}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  EncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Action: "kms:*"
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws-us-gov:iam::${AWS::AccountId}:root
+            Resource: "*"
+            Sid: "Enable IAM User Permissions"
+          -
+            Action:
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:CreateGrant"
+              - "kms:ListGrants"
+              - "kms:DescribeKey"
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws-us-gov:iam::${AWS::AccountId}:root
+                - !Sub arn:aws-us-gov:iam::${AWS::AccountId}:user/Admin
+                - !GetAtt GlueRole.Arn
+              Service:
+                - s3.amazonaws.com
+                - ssm.amazonaws.com
+            Resource: "*"
+
+  KeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/S3Inventory
+      TargetKeyId: !Ref EncryptionKey
+
+  GlueRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "glue-crawler-role"
+      Path: "/service-role/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: InventoryRole
+            Effect: "Allow"
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - "arn:aws-us-gov:iam::aws:policy/service-role/AWSGlueServiceRole"
+      Policies:
+        - PolicyName: "lake-formation-glue-crawler"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource:
+                  - !Sub "arn:aws-us-gov:s3:::${InventoryBucketName}/*"
+  MyDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: "ssm-inventory"
+        Description: "InventoryDB"
+
+  MyCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: "InventoryCrawler"
+      Role: !GetAtt GlueRole.Arn
+      DatabaseName: !Ref MyDatabase
+      Targets:
+        S3Targets:
+          - Path: !Ref InventoryBucketName
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "LOG"
+      Schedule:
+        ScheduleExpression: "cron(0/10 * ? * MON-FRI *)"
