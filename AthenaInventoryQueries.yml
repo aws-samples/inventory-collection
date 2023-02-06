@@ -51,9 +51,7 @@ Resources:
       Description: Collect a total number of application instances by accounts.
       Name: !Ref SelectQueryName3
       QueryString: !Sub >-
-        SELECT accountid, name, count(*) as installation_count FROM aws_application
-        WHERE name = ‘<software-name>' 
-        GROUP BY accountid, name ORDER BY installation_count desc
+        SELECT accountid, name, count(*) as installation_count FROM aws_application where name = '<software-name>' GROUP BY accountid, name ORDER BY installation_count desc
   AthenaSelectQuery4:
     Type: 'AWS::Athena::NamedQuery'
     Properties:
@@ -61,5 +59,4 @@ Resources:
       Description: Collect OS inventory 
       Name: !Ref SelectQueryName4
       QueryString: !Sub >-
-        SELECT * FROM aws_instancedetailedinformation a join
-        aws_network b ON  a.resourceid=b.resourceid 
+        SELECT * FROM aws_instancedetailedinformation a join aws_network b ON a.resourceid=b.resourceid

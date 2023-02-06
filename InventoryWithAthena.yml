@@ -170,7 +170,7 @@ Resources:
             Principal:
               AWS:
                 - !Sub arn:aws-us-gov:iam::${AWS::AccountId}:root
-                - !Sub arn:aws-us-gov:iam::${AWS::AccountId}:user/Admin
+                - !Sub arn:aws-us-gov:iam::${AWS::AccountId}:User/Admin
                 - !GetAtt GlueRole.Arn
               Service:
                 - s3.amazonaws.com
