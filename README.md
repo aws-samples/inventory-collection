@@ -1,11 +1,5 @@
-## My Project
+The solution uses a structure where AWS Systems Manager is configured in each child account and pushes the inventory information to a central account. This approach helps organization with continuous monitoring and operations. It also helps with identifying security and compliance issues with your server instances. Any customer going through the FedRAMP authorization process can leverage this solution for compliance and deliverable of  a monthly FedRAMP inventory data.
 
-TODO: Fill this README out!
-
-Be sure to:
-
-* Change the title in this README
-* Edit your repository description on GitHub
 
 ## Security
 
