@@ -20,7 +20,7 @@ Parameters:
   SelectQueryName3:
     Description: Collect a total number of application instances by accounts
     Type: String
-    Default: TotalNumberIntanceQuery
+    Default: TotalNumberInstanceQuery
   SelectQueryName4:
     Description: Collect OS inventory 
     Type: String
