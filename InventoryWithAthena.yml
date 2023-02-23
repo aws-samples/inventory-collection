@@ -39,6 +39,8 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: LogDeliveryWrite
+      VersioningConfiguration:
+        Status: Enabled
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -73,6 +75,8 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: LogDeliveryWrite
+      VersioningConfiguration:
+        Status: Enabled
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
